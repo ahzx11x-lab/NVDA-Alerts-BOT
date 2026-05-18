@@ -1,0 +1,425 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: NVDA Alerts API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: alerts
+    description: Price alert operations
+  - name: stock
+    description: Stock data operations
+  - name: stats
+    description: Trading statistics
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List all alerts
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, triggered, all]
+            default: all
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+    post:
+      operationId: createAlert
+      tags: [alerts]
+      summary: Create a new price alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertInput"
+      responses:
+        "201":
+          description: Alert created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/summary:
+    get:
+      operationId: getAlertsSummary
+      tags: [alerts]
+      summary: Get alerts summary statistics
+      responses:
+        "200":
+          description: Alerts summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertsSummary"
+
+  /alerts/{id}:
+    get:
+      operationId: getAlert
+      tags: [alerts]
+      summary: Get a single alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alert found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Alert not found
+    patch:
+      operationId: updateAlert
+      tags: [alerts]
+      summary: Update an alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertUpdate"
+      responses:
+        "200":
+          description: Alert updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Alert not found
+    delete:
+      operationId: deleteAlert
+      tags: [alerts]
+      summary: Delete an alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Alert deleted
+        "404":
+          description: Alert not found
+
+  /alerts/{id}/toggle:
+    patch:
+      operationId: toggleAlert
+      tags: [alerts]
+      summary: Toggle alert active state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alert toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Alert not found
+
+  /stock/quote:
+    get:
+      operationId: getStockQuote
+      tags: [stock]
+      summary: Get current NVDA stock quote
+      responses:
+        "200":
+          description: Current stock quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockQuote"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get aggregated trading statistics
+      responses:
+        "200":
+          description: Trading statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradingStats"
+
+  /stock/history:
+    get:
+      operationId: getStockHistory
+      tags: [stock]
+      summary: Get NVDA price history (last 30 days)
+      responses:
+        "200":
+          description: Price history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PricePoint"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Alert:
+      type: object
+      required:
+        - id
+        - targetPrice
+        - direction
+        - isActive
+        - isTriggered
+        - createdAt
+      properties:
+        id:
+          type: integer
+        targetPrice:
+          type: number
+        direction:
+          type: string
+          enum: [above, below]
+        note:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        isTriggered:
+          type: boolean
+        triggeredAt:
+          type: ["string", "null"]
+        triggeredPrice:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    AlertInput:
+      type: object
+      required:
+        - targetPrice
+        - direction
+      properties:
+        targetPrice:
+          type: number
+          minimum: 0.01
+        direction:
+          type: string
+          enum: [above, below]
+        note:
+          type: string
+
+    AlertUpdate:
+      type: object
+      properties:
+        targetPrice:
+          type: number
+          minimum: 0.01
+        direction:
+          type: string
+          enum: [above, below]
+        note:
+          type: string
+        isActive:
+          type: boolean
+
+    AlertsSummary:
+      type: object
+      required:
+        - total
+        - active
+        - triggered
+        - inactive
+        - currentPrice
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        triggered:
+          type: integer
+        inactive:
+          type: integer
+        currentPrice:
+          type: ["number", "null"]
+        nearestAlertPrice:
+          type: ["number", "null"]
+        nearestAlertDirection:
+          type: ["string", "null"]
+
+    StockQuote:
+      type: object
+      required:
+        - ticker
+        - price
+        - updatedAt
+      properties:
+        ticker:
+          type: string
+        price:
+          type: number
+        change:
+          type: ["number", "null"]
+        changePercent:
+          type: ["number", "null"]
+        high:
+          type: ["number", "null"]
+        low:
+          type: ["number", "null"]
+        open:
+          type: ["number", "null"]
+        previousClose:
+          type: ["number", "null"]
+        volume:
+          type: ["number", "null"]
+        marketCap:
+          type: ["number", "null"]
+        updatedAt:
+          type: string
+
+    PricePoint:
+      type: object
+      required:
+        - date
+        - price
+      properties:
+        date:
+          type: string
+        price:
+          type: number
+        open:
+          type: ["number", "null"]
+        high:
+          type: ["number", "null"]
+        low:
+          type: ["number", "null"]
+        volume:
+          type: ["number", "null"]
+
+    TradingStats:
+      type: object
+      required: [overall, byTicker, recent]
+      properties:
+        overall:
+          $ref: "#/components/schemas/OverallStats"
+        byTicker:
+          type: array
+          items:
+            $ref: "#/components/schemas/TickerStats"
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeRecord"
+
+    OverallStats:
+      type: object
+      required: [total, wins, losses, expired, winRate, avgContractPnl]
+      properties:
+        total:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        expired:
+          type: integer
+        winRate:
+          type: number
+        avgContractPnl:
+          type: number
+
+    TickerStats:
+      type: object
+      required: [ticker, total, wins, losses, expired, winRate]
+      properties:
+        ticker:
+          type: string
+        total:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        expired:
+          type: integer
+        winRate:
+          type: number
+
+    TradeRecord:
+      type: object
+      required: [id, ticker, signal, confidence, closeReason, pnlPct, contractEntry, contractHigh, closedAt]
+      properties:
+        id:
+          type: integer
+        ticker:
+          type: string
+        signal:
+          type: string
+          enum: [CALL, PUT]
+        confidence:
+          type: integer
+        closeReason:
+          type: string
+          enum: [tp1, tp2, tp3, stop, expired]
+        pnlPct:
+          type: number
+        contractEntry:
+          type: number
+        contractHigh:
+          type: number
+        closedAt:
+          type: string
